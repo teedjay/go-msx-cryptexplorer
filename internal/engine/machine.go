@@ -10,13 +10,14 @@ package engine
 const frameCycles = 59659
 
 // Pacing model: cycles = base + the coefficients below times the
-// console's per-tick counters. Fitted with cmd/pacefit to the traced
-// ticks (attract and random play: 17,998 ticks, none mispredicted). The
-// coefficients are a fit, not Z80 instruction timings: the game logic is
-// folded into the base.
+// console's per-tick counters. Fitted with cmd/pacefit to 39,488 traced
+// ticks (attract, random play, searched games through pyramids 1, 2, 3,
+// 7, 8, screen flips and map screens): 11 mispredicted, each by one
+// frame. The coefficients are a fit, not Z80 instruction timings: other
+// game logic is folded into the base, the probes and the enemies.
 var pacing = struct {
-	base, setup, write, mirror, ldir, fill, wrtvrm, rle float64
-}{4500, 75, 45, 300, 143.5, 16.9, 150, 33.8}
+	base, setup, write, mirror, ldir, fill, wrtvrm, rle, maptile, probe, enemy float64
+}{4303.5, 22.3, 70.9, 391.4, 77.8, 4.9, 136.9, 7.7, 244.9, 150, 542}
 
 // initInterrupts are the VRAM write counts (since INIT's entry) at which
 // the reference machine took its 19 INIT-time interrupts: the first when
@@ -52,7 +53,8 @@ func (c *Console) TickCycles() float64 {
 	return p.base + p.setup*float64(c.SetAddrs) + p.write*float64(c.VW) +
 		p.mirror*float64(c.Cost[0]) + p.ldir*float64(c.Cost[1]) +
 		p.fill*float64(c.Cost[2]) + p.wrtvrm*float64(c.Cost[3]) +
-		p.rle*float64(c.Cost[4])
+		p.rle*float64(c.Cost[4]) + p.maptile*float64(c.Cost[5]) +
+		p.probe*float64(c.Cost[6]) + p.enemy*float64(c.Cost[7])
 }
 
 // WillTick reports whether the next frame starts a tick (the game reads

@@ -51,8 +51,10 @@ type Console struct {
 	SS int
 	// Cost counts slower per-byte work, for the pacing model:
 	// [0] bit-mirrored bytes, [1] RAM bytes copied (LDIR/LDDR),
-	// [2] VRAM fill bytes, [3] BIOS WRTVRM/RDVRM calls, [4] stream bytes.
-	Cost [5]int
+	// [2] VRAM fill bytes, [3] BIOS WRTVRM/RDVRM calls, [4] stream bytes,
+	// [5] map cell-to-tile lookups ($5D75), [6] map probes ($50E1),
+	// [7] enemies updated.
+	Cost [8]int
 	// Interrupts counts interrupts taken (H.KEYI entries).
 	Interrupts int
 

@@ -18,6 +18,7 @@ package engine
 // down and by the signed b pixels across, and its address. Ported from
 // $50E1-$511A. High.
 func (c *Console) mapCell(p uint16, b, cc byte) (byte, uint16) {
+	c.Cost[6]++
 	row := uint16((c.rd(p)+cc)>>3) & 0x1F
 	x := c.rd16(p + 2)
 	x += uint16(int16(int8(b)))
@@ -106,6 +107,7 @@ func nameAddr(d, e byte) uint16 {
 // mapTile is the name-table tile for map cell a: a 16-entry row per
 // class from the pointer table at $5D8B. Ported from $5D75-$5D8A. High.
 func (c *Console) mapTile(a byte) byte {
+	c.Cost[5]++
 	p := c.rd16(0x5D8B + uint16(a>>4)*2)
 	return c.rd(p + uint16(a&0x0F))
 }

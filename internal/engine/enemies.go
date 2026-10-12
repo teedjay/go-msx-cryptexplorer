@@ -40,6 +40,7 @@ func (c *Console) enemiesUpdate() {
 	c.wr(0xE165, 0)
 	for {
 		ix := c.enemy(c.rd(0xE165))
+		c.Cost[7]++
 		c.wr(ix+2, c.rd(ix+1)>>2)
 		if c.enemyState(ix) {
 			c.enemySprite(ix)

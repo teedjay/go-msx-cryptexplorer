@@ -67,7 +67,7 @@ func (c *Console) Interrupt() {
 	c.VW = 0
 	c.SS = 0
 	c.SetAddrs = 0
-	c.Cost = [5]int{}
+	c.Cost = [8]int{}
 }
 
 // Tick runs one tick body and releases the busy flag. Interrupts due

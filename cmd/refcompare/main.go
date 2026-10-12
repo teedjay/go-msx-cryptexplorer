@@ -148,8 +148,8 @@ func main() {
 			if err != nil {
 				fail(err)
 			}
-			fmt.Fprintf(pace, "%d,%d,%d,%d,%d,%d,%d,%d,%d\n", tick, next.Interrupts-rec.Interrupts, c.SetAddrs, c.VW,
-				c.Cost[0], c.Cost[1], c.Cost[2], c.Cost[3], c.Cost[4])
+			fmt.Fprintf(pace, "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n", tick, next.Interrupts-rec.Interrupts, c.SetAddrs, c.VW,
+				c.Cost[0], c.Cost[1], c.Cost[2], c.Cost[3], c.Cost[4], c.Cost[5], c.Cost[6], c.Cost[7])
 		}
 		if c.Unported != "" {
 			fmt.Printf("ticks 0-%d match; tick %d reached unported %s\n", tick, tick, c.Unported)
