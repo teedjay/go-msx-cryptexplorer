@@ -12,7 +12,7 @@ the exit doors and the map screen into the next pyramid) match it byte for
 byte, tick by tick; see `docs/analysis.md` for exactly what has been
 verified.
 
-![Two pyramids (5 and 13), rendered by this port](screenshots/readme.png)
+![The title screen and a pyramid, rendered by this port](screenshots/readme.png)
 
 ## Requirements
 
