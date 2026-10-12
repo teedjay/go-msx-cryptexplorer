@@ -56,9 +56,10 @@ type Console struct {
 	// Interrupts counts interrupts taken (H.KEYI entries).
 	Interrupts int
 
-	// F000 is the byte at $F000, just past the game RAM: the map fill
-	// at $6D9A writes one byte beyond the map ($E760 + $8A0).
-	F000 byte
+	// High is $F000-$F37F (see highram.go): $F000 is written by the map
+	// fill at $6D9A, one byte beyond the map; the map probes can read
+	// the rest.
+	High [HighSize]byte
 }
 
 // New returns a console with the power-on state the reference machine
@@ -66,7 +67,7 @@ type Console struct {
 // RAM above $E700 is seeded by the caller (NewMachine, or the comparator
 // from tick 0).
 func New() *Console {
-	c := &Console{JoyA: 0x3F}
+	c := &Console{JoyA: 0x3F, High: powerOnHigh()}
 	for i := range c.Keys {
 		c.Keys[i] = 0xFF
 	}
@@ -94,8 +95,8 @@ func (c *Console) rd(a uint16) byte {
 		return assets.ROMByte(int(a))
 	case a == 0x0006 || a == 0x0007: // VDPDR, VDPDW: both $98 on C-BIOS
 		return 0x98
-	case a == 0xF000:
-		return c.F000
+	case a >= HighBase && a < HighBase+HighSize:
+		return c.High[a-HighBase]
 	}
 	panic(fmt.Sprintf("engine: read of unmapped $%04X", a))
 }
@@ -107,8 +108,8 @@ func (c *Console) wr(a uint16, v byte) {
 	case a >= RAMBase && a < RAMBase+RAMSize:
 		c.RAM[a-RAMBase] = v
 	case a >= 0x4000 && a < 0x8000:
-	case a == 0xF000: // the map fill's last byte ($6D9A)
-		c.F000 = v
+	case a >= HighBase && a < HighBase+HighSize: // $F000: the map fill's last byte ($6D9A)
+		c.High[a-HighBase] = v
 	default:
 		panic(fmt.Sprintf("engine: write of $%02X to unmapped $%04X", v, a))
 	}
