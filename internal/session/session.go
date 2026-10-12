@@ -167,3 +167,16 @@ func Released() [11]byte {
 // Row and Mask expose a key's place in the matrix.
 func (k MatrixKey) Row() int   { return k.row }
 func (k MatrixKey) Mask() byte { return k.mask }
+
+// SoundOnly advances only the sound driver by a frame and returns that
+// frame's samples (for previewing one sound).
+func (s *Session) SoundOnly() []float32 {
+	s.M.SoundFrame()
+	s.Frame++
+	s.chip.SetRegs(s.M.PSG, false)
+	s.frac += SampleRate / FrameRate
+	n := int(s.frac)
+	s.frac -= float64(n)
+	s.Samples = s.chip.Render(s.Samples[:0], n, SampleRate)
+	return s.Samples
+}

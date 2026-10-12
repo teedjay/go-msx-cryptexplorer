@@ -30,6 +30,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 
 	"go-msx-cryptexplorer/internal/session"
+	"go-msx-cryptexplorer/internal/wav"
 )
 
 const title = "go-msx-cryptexplorer"
@@ -55,10 +56,11 @@ type game struct {
 	scale int
 	out   *ring
 	img   *ebiten.Image
+	quit  int
 }
 
 func (g *game) Update() error {
-	if ebiten.IsKeyPressed(ebiten.KeyEscape) {
+	if ebiten.IsKeyPressed(ebiten.KeyEscape) || g.quit > 0 && g.s.Frame >= g.quit {
 		return ebiten.Termination
 	}
 	g.press.Apply(g.s.Frame, &g.held)
@@ -100,8 +102,10 @@ func (g *game) Layout(int, int) (int, int) {
 // filled up with it, and two thirds of the music was dropped as stale
 // (measured over 12s of attract).
 type ring struct {
-	mu  sync.Mutex
-	buf []float32
+	mu     sync.Mutex
+	buf    []float32
+	tap    []float32 // with -tap: everything Read handed the player
+	taping bool
 }
 
 // starve is the silence returned when no samples are ready: short, so a
@@ -126,7 +130,13 @@ func (r *ring) Read(p []byte) (int, error) {
 	if n == 0 {
 		n = min(len(p)/4, starve)
 		clear(p[:n*4])
+		if r.taping {
+			r.tap = append(r.tap, make([]float32, n)...)
+		}
 		return n * 4, nil
+	}
+	if r.taping {
+		r.tap = append(r.tap, r.buf[:n]...)
 	}
 	for i, v := range r.buf[:n] {
 		x := int16(v * 0.8 * 32767)
@@ -144,6 +154,8 @@ func main() {
 	press := flag.String("press", "", "scripted keys: FRAME:KEY or FRAME:-KEY, comma separated")
 	shot := flag.String("shot", "", "headless: save frame -shotframe to this PNG and quit")
 	shotFrame := flag.Int("shotframe", 600, "frame for -shot")
+	tap := flag.String("tap", "", "write what the window hands the audio player to this WAV (checks the hand-off)")
+	quit := flag.Int("quitframe", 0, "quit after this many frames (0: never)")
 	flag.Parse()
 	sc, err := session.ParsePress(*press)
 	if err != nil {
@@ -159,7 +171,7 @@ func main() {
 		s.Record = bufio.NewWriter(f)
 		defer s.Record.Flush()
 	}
-	g := &game{s: s, press: sc, scale: *scale, held: session.Released()}
+	g := &game{s: s, press: sc, scale: *scale, held: session.Released(), quit: *quit}
 
 	if *shot != "" {
 		for s.Frame <= *shotFrame {
@@ -179,7 +191,7 @@ func main() {
 
 	if !*mute {
 		ctx := audio.NewContext(session.SampleRate)
-		g.out = &ring{}
+		g.out = &ring{taping: *tap != ""}
 		p, err := ctx.NewPlayer(g.out)
 		if err != nil {
 			fail(err)
@@ -194,6 +206,14 @@ func main() {
 	ebiten.SetTPS(60)
 	if err := ebiten.RunGame(g); err != nil && err != ebiten.Termination {
 		fail(err)
+	}
+	if *tap != "" && g.out != nil {
+		g.out.mu.Lock()
+		err := wav.Write(*tap, session.SampleRate, g.out.tap)
+		g.out.mu.Unlock()
+		if err != nil {
+			fail(err)
+		}
 	}
 }
 

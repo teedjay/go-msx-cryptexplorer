@@ -79,3 +79,19 @@ func (c *Console) State() byte { return c.rd(0xE000) }
 
 // RAMAt reads a game RAM byte (for tests and tools).
 func (c *Console) RAMAt(a uint16) byte { return c.rd(a) }
+
+// MapScreen returns a copy of VRAM with the name table showing map
+// screen s (0-2) as the game would draw it (rows 1-22), for tools that
+// look at a whole pyramid.
+func (c *Console) MapScreen(s int) [0x4000]byte {
+	v := c.VDP.VRAM
+	for r := 0; r < 0x16; r++ {
+		for x := 0; x < 0x20; x++ {
+			v[0x3820+r*0x20+x] = c.mapTile(c.rd(uint16(0xE760 + r*0x60 + s*0x20 + x)))
+		}
+	}
+	return v
+}
+
+// MapCell is the map byte at column x, row y (for tools).
+func (c *Console) MapCell(x, y int) byte { return c.rd(uint16(0xE700 + y*0x60 + x)) }
