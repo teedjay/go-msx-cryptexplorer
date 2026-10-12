@@ -169,7 +169,7 @@ func main() {
 		// of the time).
 		// Candidates: cells within a window below the top level, which
 		// widens while no new top is found.
-		window := 50 * (stalled / 300000)
+		window := 50 * (stalled / 30000)
 		var cands []*node
 		var w []float64
 		total := 0.0

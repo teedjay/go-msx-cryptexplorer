@@ -182,6 +182,32 @@ when their tables are fully mapped (Medium extent, High content).
 | 2026-10-12 | comparator flip test | | a flipped RAM byte (tick 1500) and VRAM byte (tick 1700) reported at the right tick and address |
 | 2026-10-12 | machinecheck (paced Machine) | attract 12,000, play1 6,000 | RAM, VRAM and frame timing all match |
 
+## Cheat starts against real arrivals
+
+The pyramid-select cheat (`internal/session/cheat.go` over
+`engine.StartPyramid`) goes through the game's own start and writes only
+`$E055` (pyramid) and `$E056` (entry door, derived from the pyramid data's
+door records). `cmd/tracediff` compared the first play tick of pyramid 8
+reached for real (the p7 trace, tick 4374) with a cheat start of it (p8,
+tick 449), every byte of RAM and VRAM:
+
+- expected: the held input `$E009`, score and hi-score digits (RAM and
+  name table), sound channel 3 and the falling-tone bytes `$E02D-$E03E`,
+  the sprite rotation `$E061` and enemy sprite bytes (timing), the phase
+  `$E051` (3 against 1; only its parity is used), `$E062` (pyramid 7
+  cleared), the stack (`$E6B6-$E6D3`);
+- leftovers of earlier play that the pyramid does not use: `$E057` (the
+  door left by, used only by the map screen), `$E05F` (a stair flag both
+  sides rewrite before reading), the map screen's marker sprites
+  (`$E0FD-$E103`, hidden), the map screen's tile patterns and colours
+  (`$0600-$073F`, `$2600-$273F` in each third), and dagger sprite frames
+  past the no-item player patterns (`$18C0-$193E`, mirrored at
+  `$1BC1-$1C3E`).
+
+No difference in state the pyramid reads. A cheat start has no pyramid
+marked cleared, so every pyramid's jewels are there and its clear bonus
+is paid.
+
 ## Bugs found by the comparator, and other corrections
 
 - **2026-10-12, tick 598** (`$4CFA`): the player's sprite patterns take
