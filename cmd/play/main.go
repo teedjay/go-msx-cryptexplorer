@@ -5,8 +5,9 @@
 //
 // Keys: arrows move (up and down on stairs), SPACE jumps, throws the
 // dagger or digs with the pick, F1 pauses, F2 gives up the life, Esc
-// quits. The pyramid-select cheat (internal/session/cheat.go): outside a
-// game, 1-9, 0, Q, W, E, R, T start a game at pyramid 1-15.
+// quits. The pyramid-select cheat (internal/session/cheat.go): on the
+// title screen (or the logo or demo), A starts a game at pyramid 1, B at
+// pyramid 2, and so on to O at pyramid 15.
 //
 // -record writes the session as a key schedule (tick:row:mask:down|up)
 // that scripts/refdump.sh can replay into the original, so a session can
@@ -41,11 +42,11 @@ var hostKeys = map[ebiten.Key]string{
 	ebiten.KeyF1: "F1", ebiten.KeyF2: "F2",
 }
 
-// pyramidKeys start a game at pyramid 1-15 (the cheat).
+// pyramidKeys start a game at pyramid 1-15 (the cheat): A-O.
 var pyramidKeys = []ebiten.Key{
-	ebiten.KeyDigit1, ebiten.KeyDigit2, ebiten.KeyDigit3, ebiten.KeyDigit4, ebiten.KeyDigit5,
-	ebiten.KeyDigit6, ebiten.KeyDigit7, ebiten.KeyDigit8, ebiten.KeyDigit9, ebiten.KeyDigit0,
-	ebiten.KeyQ, ebiten.KeyW, ebiten.KeyE, ebiten.KeyR, ebiten.KeyT,
+	ebiten.KeyA, ebiten.KeyB, ebiten.KeyC, ebiten.KeyD, ebiten.KeyE,
+	ebiten.KeyF, ebiten.KeyG, ebiten.KeyH, ebiten.KeyI, ebiten.KeyJ,
+	ebiten.KeyK, ebiten.KeyL, ebiten.KeyM, ebiten.KeyN, ebiten.KeyO,
 }
 
 // game is the Ebitengine side.

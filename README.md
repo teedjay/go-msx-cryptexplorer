@@ -42,8 +42,9 @@ current life, Esc quits. `-scale N` sets the window size, `-mute` turns
 off the sound, and `-record file.keys` saves your session so it can be
 replayed into the original and compared.
 
-Cheat: outside a game (logo, title or demo), keys 1-9, 0, Q, W, E, R and T
-start a game at pyramid 1-15. The cheat is an extension over the port: it
+Cheat: on the title screen (or the logo or demo), a letter starts a game
+at that pyramid: A at pyramid 1, B at pyramid 2, and so on to O at
+pyramid 15 (there are 15). The cheat is an extension over the port: it
 goes through the game's own start and only sets the pyramid (and its
 entry door) before the first one is built. A recorded session notes it as
 two RAM writes, which the reference recorder replays too.
