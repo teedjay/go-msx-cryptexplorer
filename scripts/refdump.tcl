@@ -5,7 +5,10 @@
 # Parameters, from the environment (openMSX runs -script before -command):
 #   RD_OUT    trace file to write (keep it outside the repo)
 #   RD_TICKS  number of ticks to record (default 600)
-#   RD_KEYS   optional input schedule, lines "tick:row:mask:down|up"
+#   RD_KEYS   optional input schedule, lines "tick:row:mask:down|up", or
+#             "tick:P:addr:value" (decimal) to poke RAM at that tick start
+#             (the pyramid-select cheat's writes, applied identically by
+#             the comparator)
 #
 # Run with scripts/refdump.sh, which adds a watchdog (macOS has no timeout).
 #
@@ -40,6 +43,7 @@
 #                                     address ($4021 handler entry, $403C
 #                                     handler exit path, else elsewhere)
 #   K <tick+1> <row> <mask> down|up   input applied before recording tick+1
+#   P <tick+1> <addr> <value>         RAM poked before recording tick+1
 #
 # Every global is prefixed rd_ (globals named ::keys or ::t broke a script
 # silently in the third project).
@@ -126,6 +130,11 @@ proc rd_on_tick {} {
 	if {[dict exists $::rd_sched $::rd_tick]} {
 		foreach rd_k [dict get $::rd_sched $::rd_tick] {
 			lassign $rd_k rd_row rd_mask rd_dir
+			if {$rd_row eq "P"} {
+				poke $rd_mask $rd_dir
+				puts $::rd_ev "P $::rd_tick $rd_mask $rd_dir"
+				continue
+			}
 			if {$rd_dir eq "down"} {
 				keymatrixdown $rd_row $rd_mask
 			} else {

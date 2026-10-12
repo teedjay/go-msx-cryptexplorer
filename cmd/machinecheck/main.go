@@ -23,10 +23,13 @@ func main() {
 		os.Exit(1)
 	}
 	keys := map[int][]reftrace.Event{}
+	pokes := map[int][]reftrace.Event{}
 	for _, e := range t.Events {
 		switch e.Kind {
 		case 'K':
 			keys[e.Tick] = append(keys[e.Tick], e)
+		case 'P':
+			pokes[e.Tick] = append(pokes[e.Tick], e)
 		}
 	}
 	m := engine.NewMachine()
@@ -52,6 +55,9 @@ func main() {
 		for !ticked {
 			frames++
 			ticked = m.FrameWith(func() { // called at the tick start
+				for _, p := range pokes[tick] {
+					m.Poke(p.Addr, p.A)
+				}
 				ram, vram := 0, 0
 				for i := range rec.RAM {
 					if a := engine.RAMBase + i; a >= 0xE680 && a < 0xE700 {

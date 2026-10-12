@@ -11,13 +11,12 @@
 package main
 
 import (
-	"bufio"
 	"flag"
 	"fmt"
 	"os"
 	"strconv"
-	"strings"
 
+	"go-msx-cryptexplorer/internal/keys"
 	"go-msx-cryptexplorer/internal/session"
 	"go-msx-cryptexplorer/internal/wav"
 )
@@ -30,33 +29,12 @@ func main() {
 	out := flag.String("o", "out.wav", "output WAV")
 	flag.Parse()
 
-	type key struct {
-		row  int
-		mask byte
-		down bool
-	}
-	sched := map[int][]key{}
+	sched := keys.Schedule{}
 	if *keysPath != "" {
-		f, err := os.Open(*keysPath)
-		if err != nil {
+		var err error
+		if sched, err = keys.Read(*keysPath); err != nil {
 			fail(err)
 		}
-		sc := bufio.NewScanner(f)
-		for sc.Scan() {
-			l := strings.TrimSpace(sc.Text())
-			if l == "" || l[0] == '#' {
-				continue
-			}
-			p := strings.Split(l, ":")
-			if len(p) != 4 {
-				fail(fmt.Errorf("bad line %q", l))
-			}
-			t, _ := strconv.Atoi(p[0])
-			r, _ := strconv.Atoi(p[1])
-			m, _ := strconv.Atoi(p[2])
-			sched[t] = append(sched[t], key{r, byte(m), p[3] == "down"})
-		}
-		f.Close()
 	}
 	s := session.New()
 	var all []float32
@@ -75,10 +53,13 @@ func main() {
 		for s.Ticks < *ticks {
 			if s.M.WillTick() && applied != s.Ticks {
 				for _, k := range sched[s.Ticks] {
-					if k.down {
-						want[k.row] &^= k.mask
-					} else {
-						want[k.row] |= k.mask
+					switch {
+					case k.Poke:
+						s.M.Poke(k.Addr, k.Val)
+					case k.Down:
+						want[k.Row] &^= k.Mask
+					default:
+						want[k.Row] |= k.Mask
 					}
 				}
 				applied = s.Ticks

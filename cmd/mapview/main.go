@@ -7,63 +7,36 @@
 package main
 
 import (
-	"bufio"
 	"flag"
 	"fmt"
 	"image"
 	"image/draw"
 	"image/png"
 	"os"
-	"strconv"
-	"strings"
 
 	"go-msx-cryptexplorer/internal/engine"
+	"go-msx-cryptexplorer/internal/keys"
 	"go-msx-cryptexplorer/internal/msxrender"
 )
 
 func main() {
-	keys := flag.String("keys", "", "key schedule")
+	keysPath := flag.String("keys", "", "key schedule")
 	tick := flag.Int("tick", 0, "tick to render at")
 	out := flag.String("o", "pyramid.png", "output PNG")
 	cells := flag.String("cells", "", "also print map cells X0-X1,Y0-Y1 (decimal columns and rows)")
 	flag.Parse()
-	ev := map[int][][3]int{}
-	if *keys != "" {
-		f, err := os.Open(*keys)
-		if err != nil {
+	ev := keys.Schedule{}
+	if *keysPath != "" {
+		var err error
+		if ev, err = keys.Read(*keysPath); err != nil {
 			fail(err)
 		}
-		sc := bufio.NewScanner(f)
-		for sc.Scan() {
-			l := strings.TrimSpace(sc.Text())
-			if l == "" || l[0] == '#' {
-				continue
-			}
-			p := strings.Split(l, ":")
-			t, _ := strconv.Atoi(p[0])
-			r, _ := strconv.Atoi(p[1])
-			m, _ := strconv.Atoi(p[2])
-			d := 0
-			if p[3] == "down" {
-				d = 1
-			}
-			ev[t] = append(ev[t], [3]int{r, m, d})
-		}
-		f.Close()
 	}
 	m := engine.NewMachine()
 	t := 0
 	for t < *tick {
-		if m.WillTick() {
-			for _, e := range ev[t] {
-				if e[2] == 1 {
-					m.Keys[e[0]] &^= byte(e[1])
-				} else {
-					m.Keys[e[0]] |= byte(e[1])
-				}
-			}
-		}
-		if m.Frame() {
+		t0 := t
+		if m.FrameWith(func() { ev.Apply(m.Console, t0) }) {
 			t++
 		}
 	}

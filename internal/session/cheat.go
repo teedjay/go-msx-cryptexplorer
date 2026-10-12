@@ -1,5 +1,7 @@
 package session
 
+import "fmt"
+
 // The pyramid-select cheat: an extension over the port, not part of it.
 // StartAt starts a game through the game's own start path (SPACE on the
 // title), then sets the pyramid before the first intro builds it
@@ -30,6 +32,11 @@ func (s *Session) pyramidCheat(want *[11]byte) {
 		return
 	}
 	if s.M.StartPyramid(byte(s.startPyramid)) {
+		if s.Record != nil {
+			// Recorded as pokes, so the session still replays into the
+			// original (scripts/refdump.tcl applies them at the tick).
+			fmt.Fprintf(s.Record, "%d:P:%d:%d\n%d:P:%d:%d\n", s.Ticks, 0xE055, s.M.RAMAt(0xE055), s.Ticks, 0xE056, s.M.RAMAt(0xE056))
+		}
 		s.startPyramid = 0
 	}
 }

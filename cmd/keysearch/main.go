@@ -25,10 +25,9 @@ import (
 	"math"
 	"math/rand/v2"
 	"os"
-	"strconv"
-	"strings"
 
 	"go-msx-cryptexplorer/internal/engine"
+	"go-msx-cryptexplorer/internal/keys"
 )
 
 const (
@@ -62,6 +61,8 @@ func main() {
 	out := flag.String("o", "", "output schedule")
 	seed := flag.Uint64("seed", 1, "random seed")
 	rounds := flag.Int("rounds", 2000000, "give up after this many rounds")
+	pyramid := flag.Int("pyramid", 0, "start at this pyramid through the cheat (recorded as pokes)")
+	maxCells := flag.Int("maxcells", 80000, "give up when the archive grows past this many cells")
 	dump := flag.Int("dump", 0, "after this many rounds, save the schedule to a top-level cell and stop (debugging)")
 	flag.Parse()
 	rng := rand.New(rand.NewPCG(*seed, 7))
@@ -71,23 +72,20 @@ func main() {
 	tick := 0
 	held := byte(0)
 	if *from != "" {
-		ev := readSchedule(*from)
-		last := 0
-		for t := range ev {
-			last = max(last, t)
+		ev, err := keys.Read(*from)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
 		}
+		last := ev.Last()
 		for tick <= last {
 			if m.WillTick() {
 				for _, e := range ev[tick] {
-					if e.down {
-						m.Keys[e.row] &^= e.mask
-					} else {
-						m.Keys[e.row] |= e.mask
-					}
-					prefix = append(prefix, fmt.Sprintf("%d:%d:%d:%s", tick, e.row, e.mask, map[bool]string{true: "down", false: "up"}[e.down]))
+					prefix = append(prefix, e.Line(tick))
 				}
 			}
-			if m.Frame() {
+			t0 := tick
+			if m.FrameWith(func() { ev.Apply(m.Console, t0) }) {
 				tick++
 			}
 		}
@@ -100,6 +98,29 @@ func main() {
 			prefix = append(prefix, edges(tick, held, st.mask)...)
 			held = st.mask
 			tick = play(m, st.mask, st.n, tick)
+		}
+	}
+	if *pyramid > 0 {
+		// The pyramid-select cheat, as pokes the recorder replays: at the
+		// first intro tick (state 4, sub-state 0) of the game.
+		for !(m.InGame() && m.RAMAt(0xE000) == 4 && m.RAMAt(0xE001) == 0) {
+			tick = play(m, held, 1, tick)
+		}
+		n := byte(*pyramid)
+		door := m.EntryDoor(n)
+		ok := false
+		for !ok {
+			if m.WillTick() {
+				t0 := tick
+				m.FrameWith(func() {
+					if ok = m.StartPyramid(n); ok {
+						prefix = append(prefix, keys.Event{Poke: true, Addr: 0xE055, Val: n}.Line(t0), keys.Event{Poke: true, Addr: 0xE056, Val: door}.Line(t0))
+					}
+				})
+				tick++
+			} else {
+				m.Frame()
+			}
 		}
 	}
 	startPhase := int(m.RAMAt(0xE051))
@@ -173,6 +194,10 @@ func main() {
 			cur = cands[len(cands)-1]
 		}
 		cur.chosen++
+		if len(archive) > *maxCells {
+			fmt.Fprintf(os.Stderr, "archive past %d cells at level %d: giving up\n", *maxCells, top)
+			os.Exit(1)
+		}
 		if *dump > 0 && r == *dump {
 			save(schedule(cur), false)
 			fmt.Fprintf(os.Stderr, "dumped a level-%d cell at tick %d\n", cur.level, cur.tick)
@@ -350,33 +375,4 @@ func cell(m *engine.Machine) string {
 	}
 	return fmt.Sprintf("%d/%d/%d/%d/%d/%d/%d/%d/%d/%d/%x/%x/%d", level(m), m.RAMAt(0xE000), m.RAMAt(0xE001), t, m.RAMAt(0xE13A), m.RAMAt(0xE139)>>4,
 		m.RAMAt(0xE137)>>3, m.RAMAt(0xE144)>>4, m.RAMAt(0xE134), m.RAMAt(0xE130), jw, walls, dug(m))
-}
-
-type keyEvent struct {
-	row  int
-	mask byte
-	down bool
-}
-
-func readSchedule(path string) map[int][]keyEvent {
-	f, err := os.Open(path)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
-	defer f.Close()
-	ev := map[int][]keyEvent{}
-	sc := bufio.NewScanner(f)
-	for sc.Scan() {
-		l := strings.TrimSpace(sc.Text())
-		if l == "" || l[0] == '#' {
-			continue
-		}
-		p := strings.Split(l, ":")
-		t, _ := strconv.Atoi(p[0])
-		r, _ := strconv.Atoi(p[1])
-		mk, _ := strconv.Atoi(p[2])
-		ev[t] = append(ev[t], keyEvent{r, byte(mk), p[3] == "down"})
-	}
-	return ev
 }

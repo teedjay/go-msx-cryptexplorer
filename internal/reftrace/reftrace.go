@@ -45,12 +45,12 @@ type Trace struct {
 
 // Event is one line of the .events file.
 type Event struct {
-	Kind byte // 'I' interrupt, 'W' work entered, 'R' LD A,R, 'K' input
+	Kind byte // 'I' interrupt, 'W' work entered, 'K' input, 'P' poke
 	Tick int  // tick in progress (-1 before tick 0); for K, the tick it precedes
 	// I: VRAM writes since the tick's record (since INIT entry when Tick
 	// is -2), and the interrupted PC (in Ret).
 	// W: VRAM writes since the tick's record, and the return address.
-	// R: the value read. K: row, mask, down.
+	// K: row, mask, down. P: the address (Addr) and value (A).
 	VW   int
 	Ret  uint16
 	A    byte
@@ -62,6 +62,7 @@ type Event struct {
 	// sound starts before the interrupt in its tick (0 when not logged).
 	Busy int
 	SS   int
+	Addr uint16
 }
 
 // Open opens a trace and its events file (if present).
@@ -163,8 +164,9 @@ func ParseEvents(r io.Reader) ([]Event, error) {
 					return ev, bad
 				}
 				ev.Ret = uint16(ret)
-			case 'R':
-				ev.A = byte(num(2))
+			case 'P':
+				ev.Addr = uint16(num(2))
+				ev.A = byte(num(3))
 			case 'K':
 				ev.Row, ev.Mask, ev.Down = num(2), byte(num(3)), f[4] == "down"
 			default:

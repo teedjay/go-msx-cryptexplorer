@@ -95,3 +95,7 @@ func (c *Console) MapScreen(s int) [0x4000]byte {
 
 // MapCell is the map byte at column x, row y (for tools).
 func (c *Console) MapCell(x, y int) byte { return c.rd(uint16(0xE700 + y*0x60 + x)) }
+
+// Poke writes a game RAM byte: the pyramid-select cheat's writes, as a
+// recorded schedule replays them into the original and the comparator.
+func (c *Console) Poke(a uint16, v byte) { c.wr(a, v) }

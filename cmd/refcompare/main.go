@@ -46,6 +46,7 @@ func main() {
 	// Events by tick.
 	nested := map[int][]engine.NestPoint{}
 	keys := map[int][]reftrace.Event{}
+	pokes := map[int][]reftrace.Event{}
 	exitStart := map[int]bool{} // ticks started inside the previous one's exit path
 	for _, e := range t.Events {
 		switch e.Kind {
@@ -59,6 +60,8 @@ func main() {
 			}
 		case 'K':
 			keys[e.Tick] = append(keys[e.Tick], e)
+		case 'P':
+			pokes[e.Tick] = append(pokes[e.Tick], e)
 		case 'W':
 			switch e.Ret {
 			case 0x4021:
@@ -105,6 +108,9 @@ func main() {
 		}
 		_ = exitStart[tick] // same handler entry either way: no IY-like state is modelled
 		c.Interrupt()
+		for _, p := range pokes[tick] {
+			c.Poke(p.Addr, p.A)
+		}
 		if msg := compare(c, rec, *stackLo); msg != "" {
 			fmt.Printf("ticks 0-%d match; tick %d differs: %s\n", tick-1, tick, msg)
 			if *out != "" {

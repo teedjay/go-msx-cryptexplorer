@@ -28,7 +28,7 @@ func TestOpenRead(t *testing.T) {
 	if err := os.WriteFile(p, b, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	ev := "W -1 0 4035\nR 3 77\nK 5 8 1 down\n"
+	ev := "W -1 0 4021\nP 3 57429 7\nK 5 8 1 down\n"
 	if err := os.WriteFile(p+".events", []byte(ev), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -48,10 +48,10 @@ func TestOpenRead(t *testing.T) {
 		t.Errorf("record: tick %d irq %d r0 %x ram %x vram %x", r.Tick, r.Interrupts, r.Regs[0], r.RAM[5], r.VRAM[0x3800])
 	}
 	e := tr.Events
-	if e[0].Tick != -1 || e[0].Ret != 0x4035 || e[1].A != 77 || !e[2].Down || e[2].Row != 8 || e[2].Mask != 1 {
+	if e[0].Tick != -1 || e[0].Ret != 0x4021 || e[1].Addr != 0xE055 || e[1].A != 7 || !e[2].Down || e[2].Row != 8 || e[2].Mask != 1 {
 		t.Errorf("events: %+v", e)
 	}
-	if _, err := ParseEvents(strings.NewReader("W 1 x 4035")); err == nil {
+	if _, err := ParseEvents(strings.NewReader("W 1 x 4021")); err == nil {
 		t.Error("bad event accepted")
 	}
 }
