@@ -18,3 +18,31 @@ label $6D49 TBL_PTR
 trampoline $404B JUMP_A
 label $4051 TEXT_ERASE      ; text stream with address, C=$00
 label $4055 TEXT            ; text stream with address, C=$FF
+streamcall $4051 text
+streamcall $4055 text
+
+; VRAM stream routines (format in internal/streams; same RLE as the
+; previous port's). High.
+label $4514 RLE_ADDR        ; RLE stream with its VRAM address first
+label $451A RLE             ; RLE stream, HL = VRAM address
+label $44F1 RLE_X3          ; RLE three times, $800 apart (DE restored)
+label $44E0 FILL_X3         ; FILL three times
+label $44AB FILL            ; BC bytes of A at VRAM HL
+label $44C0 COPY            ; BC bytes from DE to VRAM HL
+label $4536 SETWRT_C        ; SETWRT, C' = data port
+streamcall $4514 rle
+streamcall $451A rle-noaddr
+streamcall $44F1 rle-noaddr
+
+; Overlapped instruction: JR Z,$4F34 at $4F31 lands on the operand of
+; CP $20 ($4F33), which decodes as JR NZ,$4EF6 and is not taken (Z).
+; Unreferenced leftovers (no CALL/JP, no 16-bit word in the ROM):
+;   $4501 a tripler over $44C0, $4542 SETRD helper, and the LD A,n
+;   alternatives at $4D40, $4DB9, $7173 skipped by JR, SCF/RET at $511B.
+label $4501 DEAD_4501
+label $4542 DEAD_4542
+
+; Sound driver. High.
+label $7AA9 SOUND           ; start sound A (DI / CALL $7AAF / EI)
+label $7B36 SOUND_TICK      ; per-interrupt work
+label $7B2D SET_MIXER

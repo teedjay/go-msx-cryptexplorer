@@ -11,10 +11,10 @@
 #
 # Trace format (all integers little-endian):
 #   header  "CXTRACE1" (8 bytes)
-#           u32 interrupts (H.KEYI entries) before INIT's final EI at $40C8
-#           u32 per-interrupt work ($49C0) entries before that EI
-#   record per tick, at the tick-body start $403E:
-#           u32 tick, u32 interrupts so far, u32 $49C0 entries so far
+#           u32 interrupts (H.KEYI entries) before INIT's final EI at $4099
+#           u32 per-interrupt work ($7B36) entries before that EI
+#   record per tick, at the tick-body start $402A:
+#           u32 tick, u32 interrupts so far, u32 $7B36 entries so far
 #           8 bytes VDP R0-R7, 16 bytes PSG R0-R15,
 #           4096 bytes RAM $E000-$EFFF, 16384 bytes VRAM
 # Events go to $::rd_out.events, one per line. <tick> is the tick in
@@ -24,22 +24,21 @@
 #                                     interrupted instruction and <busy> the
 #                                     busy flag ($E005 bit 0): 0 means this
 #                                     interrupt starts a tick (usually at
-#                                     the idle JR $ at $40C9, but also in
+#                                     the idle JR $ at $409A, but also in
 #                                     the handler's exit path, e.g. inside
-#                                     the BIOS RDVDP called at $4048).
+#                                     the BIOS RDVDP called at $4034).
 #                                     <ss> counts sound events since the
-#                                     tick's record: sound starts ($490C,
-#                                     $4901) and the game's direct reads of
-#                                     the sound blocks ($41A4, $420D,
-#                                     $57E4, $5BD4, $79DC, $8FA8). With
+#                                     tick's record: sound starts ($7AA9)
+#                                     and the game's direct reads of
+#                                     the sound blocks ($41F5, $4B13,
+#                                     $4B17, $77FA). With
 #                                     <vw> it places the interrupt among
 #                                     the writes and the sound events. Before INIT's EI,
 #                                     <tick> is -2 and <vw>/<ss> count
-#                                     from INIT's entry ($407E)
-#   W <tick> <vw> <ret>               $49C0 entered; <ret> is its return
-#                                     address ($4035 handler entry, $4050
+#                                     from INIT's entry ($406C)
+#   W <tick> <vw> <ret>               $7B36 entered; <ret> is its return
+#                                     address ($4021 handler entry, $403C
 #                                     handler exit path, else elsewhere)
-#   R <tick> <A>                      LD A,R at $93AE gave A
 #   K <tick+1> <row> <mask> down|up   input applied before recording tick+1
 #
 # Every global is prefixed rd_ (globals named ::keys or ::t broke a script
@@ -152,25 +151,17 @@ proc rd_on_tick {} {
 
 proc rd_on_vram_write {} { incr ::rd_vw }
 
-# LD A,R at $93AE: log the value once the instruction has executed.
-proc rd_on_ldar {} {
-	puts $::rd_ev "R [expr {$::rd_tick - 1}] [reg A]"
-}
-
 set renderer none
 set throttle off
 set mute on
 
-debug set_bp 0x407E {} rd_on_init
+debug set_bp 0x406C {} rd_on_init
 debug set_bp 0x0038 {} rd_on_int
-debug set_bp 0x402E {} rd_on_irq
-debug set_bp 0x490C {} rd_on_sound
-debug set_bp 0x4901 {} rd_on_sound
-foreach rd_a {0x41A4 0x420D 0x57E4 0x5BD4 0x79DC 0x8FA8} {
+debug set_bp 0x401A {} rd_on_irq
+foreach rd_a {0x7AA9 0x41F5 0x4B13 0x4B17 0x77FA} {
 	debug set_bp $rd_a {} rd_on_sound
 }
-debug set_bp 0x49C0 {} rd_on_work
-debug set_bp 0x40C8 {} rd_on_init_done
-debug set_bp 0x403E {} rd_on_tick
-debug set_bp 0x93B0 {} rd_on_ldar
+debug set_bp 0x7B36 {} rd_on_work
+debug set_bp 0x4099 {} rd_on_init_done
+debug set_bp 0x402A {} rd_on_tick
 debug set_watchpoint write_io 0x98 {} rd_on_vram_write

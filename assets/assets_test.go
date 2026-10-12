@@ -20,7 +20,7 @@ func TestROMByteServesRawEntries(t *testing.T) {
 	if _, err := os.Stat("raw/vdpregs.bin"); err != nil {
 		t.Skip("assets not extracted; run go run ./cmd/extract")
 	}
-	if got := ROMByte(0x44C5); got != Bytes("vdpregs")[0] {
-		t.Errorf("ROMByte($44C5) = %02X", got)
+	if got := ROMByte(0x45C0); got != Bytes("vdpregs")[0] {
+		t.Errorf("ROMByte($45C0) = %02X", got)
 	}
 }

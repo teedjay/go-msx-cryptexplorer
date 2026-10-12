@@ -3,7 +3,7 @@
 # usage: scripts/refdump.sh OUT.trace TICKS [KEYS] [ROM]
 # Keep OUT outside the repository: traces are ROM-derived.
 set -e
-out=$1; ticks=${2:-600}; keys=${3:-}; romf=${4:-"Knightmare - Majyo Densetsu (1986) Konami [9832].rom"}
+out=$1; ticks=${2:-600}; keys=${3:-}; romf=${4:-"King's Valley 1 (1985) Konami [RC-727] [8553].rom"}
 [ -n "$out" ] || { echo "usage: $0 OUT.trace TICKS [KEYS] [ROM]" >&2; exit 2; }
 here=$(cd "$(dirname "$0")" && pwd)
 RD_OUT=$out RD_TICKS=$ticks RD_KEYS=$keys \
