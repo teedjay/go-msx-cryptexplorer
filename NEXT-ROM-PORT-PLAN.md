@@ -1,7 +1,7 @@
 # Porting an MSX cartridge ROM to native Go: project plan
 
 Intended as the `CLAUDE.md` for a new ROM-port project. It is distilled from
-four completed ones (three 16KB MSX1 cartridges and one 32KB, all fully
+five completed ones (four 16KB MSX1 cartridges and one 32KB, all fully
 ported and playable).
 Every rule below exists because something went wrong without it, or because
 it is the thing that actually caught the bug. Where a rule cost real rework,
@@ -44,6 +44,21 @@ interrupt, and it restored a register the game read stale). The fourth
 port matched byte for byte over a 188,307-tick game: all stages, every
 boss, the ending and the second loop's first stage.
 
+**The fifth port's headline lessons** (16KB, 15 pyramids, an ending, the
+same publisher's framework as the fourth): when a finished port of a
+related ROM exists, copy its generic tooling on day one and treat its
+solutions as leads, never facts; the attract sequence matched up to the
+first unported routine within hours. Read the *whole* program before
+writing the bulk of the port, then write it all and review the Go against
+the listing line by line: the whole game tick (about 3,500 instructions)
+needed two fixes to match a 12,000-tick attract trace. With no entropy
+source, input found on the port replays exactly on the original, so an
+archive search (in the manner of Go-Explore) on the port, plus **RAM
+pokes in the key schedule** that start any stage through the game's own
+start path, verified stages one at a time and in parallel. And the map
+probes read past the game's RAM into the BIOS's: ask the oracle, model
+what it shows, and say it is BIOS-specific.
+
 ---
 
 ## Phase 0: repo hygiene and legal, before any code
@@ -77,6 +92,14 @@ ROM data had accumulated inside committed Go source.
    source.
 5. **Decide the module path now.** Renaming later is mechanical but touches
    every import. A local-only repo can simply use the bare repo name.
+6. *(Fifth project)* **Reuse a previous port's generic tooling.** The
+   disassembler, renderer, PSG model, trace reader and writer, extractor,
+   comparator, pacing fit and audio tools are ROM-independent; copy them,
+   change the module path, the ROM name, size and checksum, and the
+   handful of addresses in the trace script (INIT, the hook, the tick
+   start, the per-interrupt work, the sound events). Keep everything
+   ROM-specific (entries file, manifest, engine) new. Give the trace
+   format a new magic so traces of two projects cannot be mixed up.
 
 ## Phase 1: the tooling spine
 
@@ -95,6 +118,8 @@ over. Roughly in this order:
 | `cmd/disasm -reach A,B,...` | Lists every routine reachable from a set of roots, with the instruction count. Use it to scope a porting step ("boot through title: 40 routines, 779 instructions") and to check nothing is left. |
 | `cmd/keygen`, `cmd/keysearch`, `cmd/tracecov` | Scripted-input schedules, a search that finds good play on the port, and a coverage report over a set of traces. See Phase 5, "Coverage". |
 | `cmd/audiocmp` + `scripts/refaudio.tcl` | The original's audio recorded by openMSX, compared window by window with the port's. See Phase 5, "Audio". |
+| `internal/keys` + `scripts/verify.sh` | *(Fifth project)* One parser for key schedules, shared by every tool, with `tick:P:addr:value` RAM pokes besides keys; `verify.sh KEYS DIR` records a schedule on the original and runs the comparator and the timeline in one step. |
+| `cmd/tracediff`, `cmd/tracepeek`, `cmd/mapview` | *(Fifth project)* Two recorded states byte by byte (a cheat start against a real one); chosen RAM bytes per tick (chasing a divergence); a whole level rendered from the map in RAM through the game's own tile lookup (seeing why a search is stuck). |
 
 ### Disassembler lessons from the second and third projects
 
@@ -264,6 +289,27 @@ executes Z80 code. Set it up as soon as the boot path is ported:
   input search had planned a different game. After every recording,
   print the original's state timeline (state, stage, lives, boss phase)
   from the trace before claiming what it verified.
+- *(Fifth project)* **Pokes in the key schedule.** A line
+  `tick:P:addr:value` makes the trace script `poke` RAM at that tick's
+  start breakpoint (and log it), and the comparator applies the same
+  write after the frame interrupt, before comparing. Then a cheat start
+  (write the stage variables before the first intro tick) replays into
+  the original exactly like keys, a recorded session that used the cheat
+  still verifies, and every stage can be searched and checked on its own
+  instead of only at the end of one long game. Prove it first with a
+  trivial schedule (start, poke, random keys) before trusting it.
+- *(Fifth project)* **The game can read RAM it never wrote.** A map probe
+  computed its row as `(Y + offset) >> 3 & $1F`, so an object near the top
+  of the screen read rows 24-31, past the 24-row map and the game's RAM,
+  up to `$F31F`; the map fill also wrote one byte past the map. The port's
+  `rd` panicked (good: it named the address). A dump of `$F000-$FFFF` at
+  three ticks showed the power-on pattern and C-BIOS work data there,
+  constant through a game; the port models that range with those values.
+  Note such values as BIOS-specific.
+- *(Fifth project)* **Check registers the game reads for odd reasons.**
+  `LD A,I` (probably meant as `LD A,R`) read the interrupt vector register;
+  a breakpoint logging `[reg I]` showed 0, so the branch it decided is
+  never taken. One run settles what reading the code cannot.
 
 ## Phase 2: map the ROM before porting
 
@@ -300,6 +346,11 @@ executes Z80 code. Set it up as soon as the boot path is ported:
    and data cross `$8000` freely. Do not split anything by page. Expect
    about twice the tables, triplers and stream directives, and more
    manifest gaps on the first comparator runs.
+8. *(Fifth project)* **An immediate that looks like a ROM address may be a
+   VRAM address.** `LD HL,$6300` before an RLE call is the destination
+   `$2300` (the VDP masks the top bits); the manifest generator listed it
+   as 536 bytes of data. The same trap as `LD DE,$7800` in the
+   disassembler lessons, now in the asset manifest.
 
 ## Phase 3: assets
 
@@ -354,6 +405,15 @@ executes Z80 code. Set it up as soon as the boot path is ported:
 - Runtime-decoded data stays runtime-decoded. Object shapes whose rows were
   RLE streams read at draw time are ported as the decoder routine reading
   raw ROM data, not pre-decoded.
+- *(Fifth project)* **Size every table from its reader before calling the
+  port done.** The generated manifest sized each referenced gap "up to the
+  next reference" (Low). Once every reader is ported, set each length from
+  the index range the code can produce (`AND 3` reads 4 bytes, a frame
+  number up to 9 reads 10), then rerun every trace: a read past a
+  tightened end panics with its address, which is the point.
+  A table can be read past its end on purpose: a sound note table was
+  indexed with 12 for a rest and read into the next table; keep such
+  tables contiguous in the manifest.
 
 ## Phase 4: port the engine
 
@@ -448,6 +508,19 @@ The rules that would have prevented them:
    compiling.** One pass over freshly written Go found three bugs:
    `LD (HL),0 / LDIR` ported as the LDIR first (the clear idiom needs the
    seed byte stored first), and an `RRA / JR NC` with its sense reversed.
+9. *(Fifth project)* **Return the stale A too.** A jump-start helper ended
+   with `ADD_HL_A`, and a caller stored the A it left (`$3F`, the low byte
+   of the address it computed) into two variables; a fill tripler left
+   its fill byte in A, and a state handler stored that as a timer; a map
+   fill `LD (HL),$14 / LDIR` left A as the `XOR A` before it, not `$14`.
+   Port such helpers to return what A holds on exit, and say so in their
+   doc comment. Two of the three were caught by reviewing against the
+   listing before any trace reached them.
+10. *(Fifth project)* **A handler that pops its caller's return address
+    becomes a returned flag.** `POP HL / RET` (or `POP HL` twice) skips the
+    rest of the caller, or of the caller's caller; port it as a `bool`
+    ("abort") the caller checks right after the call, and name in the doc
+    comment which frame it skips. Six handlers in the fifth ROM did this.
 
 ### Z80 and MSX semantics that bit us
 
@@ -515,6 +588,14 @@ The rules that would have prevented them:
 - **The BIOS port-number bytes** at `$0006`/`$0007` may be used swapped
   relative to the documentation. It is harmless on real machines, where both
   are `$98`; just don't let it confuse your VDP reading.
+- *(Fifth project)* **A `DEC BC / LD A,B / OR C / JR NZ` loop runs 65,536
+  times for BC = 0**, and do-while list loops over a count byte run 256
+  times for a count of 0. Port them as written where a count can be 0,
+  and document the ones whose data makes 0 impossible.
+- *(Fifth project)* **`JR` into the middle of an instruction.** `JR Z` to
+  the operand of the following `CP $20` executed `$20 $C0` as `JR NZ`,
+  never taken there. The disassembler reported it as a conflict; read the
+  bytes both ways and port the effect.
 
 ### Go pitfalls when transliterating
 
@@ -584,6 +665,15 @@ address for every byte through the BIOS costs several times more per byte
 than a streamed copy. The frontend keeps the busy flag set for the frames
 a tick owes and runs the per-interrupt work in them, so loads take their
 time and the music keeps playing.
+*(Fifth project)* A fit over attract and random play mispredicted
+nothing, and then a screen flip took 4 frames where 1 was predicted: 704
+VRAM writes, each through a cell-to-tile lookup costing several times a
+streamed write. Count every per-byte routine with its own cost (lookups,
+probes, objects updated), refit after each new kind of trace, and give
+the fit random restarts (11 of 39,488 ticks off by one frame, down from
+52). One mispredicted frame shifts every later tick in a paced replay
+(`machinecheck` reports thousands of differing ticks after it); that
+moves sound by a frame, not gameplay, because recordings are by tick.
 
 **Coverage, and reaching what random play cannot.** *(Third project)*
 Write a coverage report over a set of traces: states and sub-states seen,
@@ -627,6 +717,47 @@ ticks matched. The port is only the search engine, never the judge.
   replay past an R site (screenshots, probes) must also be fed the
   recorded values, or it shows a game that never happened.
 
+*(Fifth project)* With no entropy source, a schedule found on the port
+replays exactly; the difficulty is only finding it. What worked, and what
+did not:
+
+- **A greedy search on a distance score stalls in mazes**: it climbed
+  towards a jewel on the floor above and never left. An **archive
+  search** (Go-Explore) did not: reduce the state to a cell (progress
+  level, screen, coarse position, item held, player state), keep the
+  earliest way to each cell, pick a cell from the highest level reached
+  (favouring cells picked least often, and weighted by closeness to the
+  next target), restore it, play a few random chunks, add new cells.
+  Machines are cloned by value (about 21KB each); keep a machine only in
+  archived nodes, and only the input in the rest.
+- **The cell must include everything that makes progress invisible
+  otherwise.** Without the sub-state and a coarse timer, a 260-tick intro
+  was one cell and the search never got past it; without which jewels
+  were taken, the sliding walls' state and the count of dug cells, a dug
+  hole looked like the old cell and was thrown away.
+- **Reward progress, not tool use.** Counting picks taken and cells dug
+  in the level made the search spend every pick on useless holes, after
+  which the sealed jewel was out of reach. Weight the choice of cell by
+  distance to the target instead, and widen the window of levels when no
+  new top is found for a while.
+- **Detect a lost life the way the game ends a tick**: the death and the
+  state change happened in the same tick, so a test for "alive flag
+  cleared in the play state" never fired; test for the life-lost state.
+- **Checkpoint at each stage**: write the schedule and restart the archive
+  there, or memory grows without bound over a whole game.
+- **Search stages separately, started by pokes**, and verify each on the
+  original as it finishes (a queue: search, then `verify.sh`). Nine of 15
+  stages, the ending and the second loop's start were cleared this way.
+  Six stages gave up at a hidden mechanic each (a jewel sealed in brick,
+  reached only by jumping onto the block with a pick and digging at one
+  spot); render the stuck spot (`cmd/mapview`) and read the code, or ask
+  the user to play it with `-record`.
+- **Coverage by game state is not code coverage.** The state report
+  (`cmd/tracecov`) says which states occurred; it cannot say which
+  branches of the Go code have never run in a verified trace. Measure Go
+  coverage over the comparator runs before spending hours searching for
+  stages that may exercise nothing new.
+
 **Audio.** *(Third project)* The comparator proves the PSG registers, not
 what reaches the speakers. The first frontend applied the registers from
 the audio thread once per `Read`, which the toolkit calls in large chunks:
@@ -656,6 +787,10 @@ original's audio with the same keys, and compare: 99.8% of windows (48.1%
 before, on the same test). Also render at the real frame rate (NTSC
 59.92 Hz, not 60) and give the chip model a DC blocker: the output is
 AC-coupled, and a silent channel still outputs its volume.
+*(Fifth project)* With the fourth port's frontend copied, the window's
+tapped output agreed with the original on 99.0% of windows (99.2% on
+frequencies) the first time. Still measure it: it is the only check of
+that layer.
 
 **Make the frontend checkable headless too.** *(Third project)* Give the
 playable frontend `-press frame:KEY,...` (scripted keys) and `-shot
@@ -759,6 +894,20 @@ When an extension must change game state (a level-select cheat):
   their logs, not from memory or from a notification stream that lags.**
   When asked for status, read the log and the latest state, and say what
   is verified on the original and what only on the port.
+- *(Fifth project)* **The user's computer is shared.** Ten parallel
+  searches at 100% of a core each were too many while the user worked;
+  they asked for one, then at most three. Run long jobs at lowered
+  priority (`nice`), through a queue with a fixed width (`xargs -P 3`),
+  each with a round and memory limit so it ends on its own, and ask
+  before widening. Report each result as it lands.
+- *(Fifth project)* **A watcher that waits with `pgrep -f PATTERN` matches
+  its own command line**, which contains the pattern: it never saw the
+  queue finish. Match on something only the workers have (a PID file, the
+  binary's path) or wait on the queue's own exit.
+- *(Fifth project)* **When the user overrides a project rule, do it and
+  say once what it trades.** The README screenshot was changed to show the
+  title screen (the original's name and publisher), which Phase 0 keeps
+  out of the README; the user chose it after being told.
 
 ## Documentation hygiene
 
@@ -791,6 +940,9 @@ When an extension must change game state (a level-select cheat):
 ## Suggested first week
 
 1. Repo, `.gitignore`, `NOTICE`, README skeleton, module path. *(Phase 0)*
+   If a previous port exists, copy its generic tooling now. *(Fifth
+   project: tooling copied and the attract sequence matching to the
+   first unported routine on the first day.)*
 2. Disassembler with coverage tracking, `-gaps` and `-peek`; listing; ROM
    checksums recorded. *(Phases 1-2)*
 3. VRAM layout derived from the ROM's own register writes and confirmed by
@@ -814,3 +966,7 @@ When an extension must change game state (a level-select cheat):
    manifest gaps; the hard part was reaching the late game. Budget for
    the input search, the oracle in the loop at any `LD A,R`, and audio
    measured through the real window.)*
+9. *(Fifth project)* Pokes in the key schedule and a per-stage search
+   queue, so stages are verified one at a time as they are found; then
+   Go coverage over every verified trace, to decide what is still worth
+   searching for.

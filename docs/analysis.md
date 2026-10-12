@@ -10,26 +10,54 @@ correction note, not an edit.
 
 ## Open issues
 
-- **Pyramids 4, 9, 10, 12, 13 and 14 are not yet cleared in any trace**
-  (the search gave up at 3-5 of their jewels; they were entered and
-  played, unverified only past that point). Cleared and verified on the
-  original: 1, 2, 3, 5, 6, 7, 8, 11, 15, the ending and the start of the
-  second loop. Not yet seen: play in the second loop beyond its first
-  intro, enemy state 8 (vanish).
-- **Audio** is not yet compared with the original's (`cmd/audiocmp`,
-  `scripts/refaudio.tcl` not yet ported from the previous project). The
-  PSG register stream is proven by the comparator; the chip model and the
-  frontend's hand-off are not.
-- **Pacing** fits every traced tick (17,998 of 17,998) but the traces
-  hold only a few kinds of long tick (pyramid build, logo, title, item
-  pick-up). Refit (`cmd/pacefit`) once traces include screen flips and the
-  ending.
+The game code is complete: every reachable routine is ported (5,429
+instructions in 244 routines; no unported stub is left). What is open is
+verification, one frontend feature and documented approximations.
+
+Not yet verified against the original (ported and playable, but no trace
+has exercised it):
+
+- **Clearing pyramids 4, 9, 10, 12, 13 and 14.** The input search entered
+  and played each and gave up at 3-5 of their jewels (search limits, see
+  the verification log); play up to that point matches. Their exits and
+  the rest of their layouts are unchecked. Cleared and verified: 1, 2, 3,
+  5, 6, 7, 8, 11 and 15.
+- **The second loop beyond its first intro.** The ending and the start of
+  loop 2 match, but no play in it. The loop count `$E058` raises the enemy
+  speed and colour tier (`$6D0F`: type + `$E058`, at most 4), so the
+  faster enemies of loop 2 are untested.
+- **Enemy state 8** (an enemy stuck too long vanishes and restarts from
+  its place in the pyramid data, `$7261`): reviewed against the listing,
+  never seen in a trace.
+- **Code coverage is not measured.** Coverage so far is judged by game
+  states (`cmd/tracecov`), not by which branches of the Go code ran in a
+  verified trace. Measuring it (Go coverage over the comparator runs)
+  would show whether the items above hide untested code, and which paths
+  to steer the search or a human player to.
+
+Frontend:
+
+- **No joystick or gamepad input.** The original reads joystick port A
+  (PSG R14, `$45E8`) and the engine models it (`Console.JoyA`), but the
+  window maps only the keyboard.
+
+Known approximations (documented, measured):
+
+- **Frame pacing in the window.** The paced `Machine` mispredicts 11 of
+  39,488 traced ticks by one frame, and runs the interrupts a long tick
+  owes after it rather than between its VRAM writes, so sound can be a
+  frame off the original (the comparator places them exactly). Gameplay
+  is unaffected: recordings are indexed by tick and replay exactly.
+  Audio measured against the original: see "Audio".
 - **Unreachable-by-design values not modelled**: `LDIR` with BC = 0 in the
   enemy copy at `$6B88` (a pyramid with no enemies would copy 64KB) and
   the do-while list loops (`$57FF`, `$6532`, `$6CE7`, `$6653`) with a
   count of 0. Every pyramid has at least one enemy, jewel and dagger (the
   builder ran for all 15 without a panic), so these are documented, not
   ported for count 0, except `$6653`, which is ported as written.
+- **BIOS-specific values.** The bytes at `$F000-$F37F` that the map probes
+  can read, and the I register (0), are C-BIOS's as measured; a real MSX
+  BIOS would leave other bytes above `$F000`.
 - The roles of several RAM bytes are still Medium (see the RAM map).
 
 ## Checksums
@@ -71,8 +99,8 @@ returned flag ("skip the rest of the caller").
   `WRTPSG`, the rest during the VRAM clear), placed by VRAM write count.
 - The handler runs the sound driver `$7B36` on every interrupt, then the
   tick (`$45C8` input, `$40A3` dispatch) unless busy. The exit path's
-  `CALL M,$7B36` has not occurred in any trace yet; the comparator refuses
-  return addresses other than `$4021`/`$403C`.
+  `CALL M,$7B36` occurred once (the p8 trace) and matched; the comparator
+  refuses return addresses other than `$4021`/`$403C`.
 
 ## State machine (`$E000`, table at `$40BA`)
 
@@ -87,8 +115,8 @@ returned flag ("skip the rest of the caller").
 | 6 | `$41F5` | life lost; game over text | play1 |
 | 7 | `$4243` | game over wait | play1 |
 | 8 | `$4266` | next phase (`$E051`++) | ks1 |
-| 9 | `$427B` | screen flip (scroll) | not yet traced |
-| 10 | `$429C` | ending | not yet traced |
+| 9 | `$427B` | screen flip (scroll) | p2, p6, p8 and others |
+| 10 | `$429C` | ending | p15 |
 
 `$E051` counts phases: odd inside a pyramid, even on the map screen
 between pyramids. `$E002` bit 6 is "in a game"; with it clear, every
@@ -180,7 +208,37 @@ when their tables are fully mapped (Medium extent, High content).
 | 2026-10-12 | machinecheck (paced Machine) | attract 12,000, play1 6,000 | RAM, VRAM and frame timing all match |
 | 2026-10-12 | p3, p7, p8, p6, p2 (keysearch, cheat start by pokes) | 3,551 / 4,432 / 5,112 / 8,264 / 6,134 | all match: each pyramid cleared, exit, map screen, next pyramid |
 | 2026-10-12 | p5, p11 | 6,574 / 4,131 | all match |
+| 2026-10-12 | keysearch gave up (1.5M rounds or 80,000 cells) | | pyramids 4 (4/6 jewels), 9 (3/4), 10 (5/6), 12 (4/6), 13 (3/5), 14 (4/6) |
 | 2026-10-12 | p15 | 4,742 | all match: pyramid 15 cleared, map screen, **the ending** (state 10), extra life and bonus, second loop starts at pyramid 1 |
+
+## Audio
+
+`scripts/refaudio.tcl` records the original's audio in openMSX over a key
+schedule; `cmd/sndpreview` renders the port's through the same session
+code the window uses; `cmd/audiocmp` compares them per 1/60 s window
+(aligned by loudness envelope): both sounding or both silent, and each
+side's strongest frequency present in the other's spectrum.
+
+| Run | Windows | Sounding agrees | Frequencies agree (both sounding) |
+| --- | --- | --- | --- |
+| attract, headless | 3,066 | 97.8% | 94.2% of 378 |
+| pyramid 1 game (ks1), headless | 3,464 | 98.9% | 97.2% of 2,671 |
+| real window, tapped at the player's `Read` (`cmd/play -tap`), against the original over the window's own `-record` | 2,622 | 99.0% | 99.2% of 845 |
+
+The window's hand-off drops nothing (the previous port's failure mode).
+
+## Pacing
+
+`cmd/pacefit` fits cycles = base + coefficients x the engine's per-tick
+counters (VRAM address set-ups and writes, mirrored bytes, LDIR bytes,
+fill bytes, BIOS WRTVRM/RDVRM calls, RLE bytes, map cell-to-tile lookups,
+map probes, enemies updated) to the frame counts of the traces. The first
+fit (17,998 ticks, no screen flips) mispredicted none; the screen flip
+(704 writes, each through the `$5D75` tile lookup) then took 4 frames
+where 1 was predicted, until the lookups were counted. Over 39,488 ticks,
+11 are now off by one frame. A tick near a frame boundary can overrun
+through game logic alone (an interrupt landed inside `$5CFE`, after the
+tick's last VRAM write); the probe and enemy counters stand in for it.
 
 ## Cheat starts against real arrivals
 
