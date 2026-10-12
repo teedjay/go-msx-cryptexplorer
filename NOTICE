@@ -1,0 +1,17 @@
+This is an unofficial, non-commercial fan project. It is not affiliated
+with, authorised by or endorsed by the rights holder of the original game.
+
+What this repository contains:
+  - Go source code written for this project, which reimplements the game's
+    logic natively. The engine executes no original program code.
+  - Tools that read a user-supplied ROM image to rebuild the game's assets
+    locally.
+
+What this repository does NOT contain or distribute:
+  - The original ROM image.
+  - Graphics, sound data, text, disassembly listings or any other data
+    extracted from the ROM, in raw or decoded form.
+
+To run the port you must supply your own copy of the original cartridge
+ROM. If you are a rights holder and have a concern about this project,
+please open an issue and it will be addressed promptly.

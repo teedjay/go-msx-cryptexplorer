@@ -1,0 +1,20 @@
+; Entry points and known structure for cmd/disasm. Addresses, lengths and
+; names only: never ROM bytes. See internal/disasm/entries.go for the format.
+
+; Cartridge header: "AB", INIT, STATEMENT, DEVICE, TEXT, reserved.
+data $4000 16 HEADER       ; INIT=$406C, others $0000
+
+code $406C INIT
+code $401A IRQ             ; H.KEYI hook target (JP $401A patched into $FD9A by INIT)
+
+; Helpers (read from the bytes, High):
+;   $4010 ADD_HL_A  HL += A
+;   $4015 ADD_DE_A  DE += A
+;   $6D49 TBL_PTR   HL = word at HL + A (A already doubled by the caller)
+;   $404B JUMP_A    ADD A,A / POP HL (inline table after the CALL) / TBL_PTR / JP (HL)
+label $4010 ADD_HL_A
+label $4015 ADD_DE_A
+label $6D49 TBL_PTR
+trampoline $404B JUMP_A
+label $4051 TEXT_ERASE      ; text stream with address, C=$00
+label $4055 TEXT            ; text stream with address, C=$FF

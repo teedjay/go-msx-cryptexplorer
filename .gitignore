@@ -1,0 +1,15 @@
+# The original ROM and everything derived from it belong to the rights
+# holder. None of it is ever committed.
+*.rom
+assets/**/*.bin
+docs/listing.asm
+
+# Reference traces, VRAM dumps and audio recordings are ROM-derived too;
+# keep them outside the repo. These patterns are a safety net.
+*.trace
+*.vram
+*.wav
+
+# Local clutter
+.DS_Store
+/scratch/
