@@ -194,7 +194,7 @@ func (c *Console) dispatchState(s, sub byte) {
 	case 9:
 		c.stateExit()
 	case 10:
-		c.stateEnding()
+		c.stateEnding(sub)
 	default:
 		panic("engine: state out of range")
 	}

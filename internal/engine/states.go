@@ -153,13 +153,13 @@ func (c *Console) stateIntro(sub byte) {
 		c.nextSub(a) // A is stale: the last fill byte of $4BE4
 	case 2:
 		c.drawSprites()
-		c.unported(0x6DF0)
+		c.doorSequence()
 	case 3:
 		if c.dec(0xE004) != 0 {
 			return
 		}
 		c.wr(0xE133, 0)
-		c.unported(0x65EA)
+		c.doorsUpdate()
 		if c.rd(0xE002)&0x40 != 0 {
 			c.soundStart(0x8B)
 		}
@@ -173,7 +173,12 @@ func (c *Console) stateIntro(sub byte) {
 		c.dec(0xE050)
 		// $416D: LD A,($E05E) / OR A / JR NZ,$4173: both ways continue.
 		c.stageSetup()
-		c.unported(0x65EA)
+		c.doorsUpdate()
+		c.playerEnter()
+		c.playerSprite()
+		c.drawSprites()
+		c.playerAppear()
+		c.drawHUD()
 		c.nextSub(0x10)
 	}
 }
@@ -186,7 +191,7 @@ func (c *Console) stateIntroB(sub byte) {
 			return
 		}
 		c.drawScoreLine()
-		c.unported(0x7748)
+		c.mapScreenInit()
 		c.wr(0xE053, 1)
 		c.nextState(0x20)
 		return
@@ -217,17 +222,12 @@ func (c *Console) wipeColumn() bool {
 	return false
 }
 
-// stageSetup builds the pyramid. Ported from $432A-$432F. Medium.
-func (c *Console) stageSetup() {
-	c.unported(0x4FEE)
-}
-
 // statePlay is state 5. Ported from $41D5-$41F4. Medium.
 func (c *Console) statePlay() {
 	if c.rd(0xE051)&1 != 0 {
 		c.playTick()
 	} else {
-		c.unported(0x77C3)
+		c.mapScreenTick()
 	}
 	if c.rd(0xE00D) != 0 {
 		c.wr(0xE000, 7)
@@ -296,21 +296,3 @@ func (c *Console) stateNextLife() {
 	c.setState(4)
 }
 
-// stateExit is state 9. Ported from $427B-$429B. Medium.
-func (c *Console) stateExit() {
-	c.unported(0x5D19)
-}
-
-// stateEnding is state 10. Ported from $429C. Medium.
-func (c *Console) stateEnding() {
-	c.unported(0x75BD)
-}
-
-// playTick is the play state's tick in a game. Ported from $4B0C.
-func (c *Console) playTick() { c.unported(0x4B0C) }
-
-// drawSprites copies the sprite table to VRAM. Ported from $4B75.
-func (c *Console) drawSprites() { c.unported(0x4B75) }
-
-// extraLife awards a life. Ported from $6EAC.
-func (c *Console) extraLife() { c.unported(0x6EAC) }

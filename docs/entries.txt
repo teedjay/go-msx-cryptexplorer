@@ -46,3 +46,6 @@ label $4542 DEAD_4542
 label $7AA9 SOUND           ; start sound A (DI / CALL $7AAF / EI)
 label $7B36 SOUND_TICK      ; per-interrupt work
 label $7B2D SET_MIXER
+
+; Player sprite pattern streams by item ($E144 >> 4), read by $5056. High.
+streamtable $5075 3 rle PLAYER_SPRITES

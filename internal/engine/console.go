@@ -55,6 +55,10 @@ type Console struct {
 	Cost [5]int
 	// Interrupts counts interrupts taken (H.KEYI entries).
 	Interrupts int
+
+	// F000 is the byte at $F000, just past the game RAM: the map fill
+	// at $6D9A writes one byte beyond the map ($E760 + $8A0).
+	F000 byte
 }
 
 // New returns a console with the power-on state the reference machine
@@ -90,6 +94,8 @@ func (c *Console) rd(a uint16) byte {
 		return assets.ROMByte(int(a))
 	case a == 0x0006 || a == 0x0007: // VDPDR, VDPDW: both $98 on C-BIOS
 		return 0x98
+	case a == 0xF000:
+		return c.F000
 	}
 	panic(fmt.Sprintf("engine: read of unmapped $%04X", a))
 }
@@ -101,6 +107,8 @@ func (c *Console) wr(a uint16, v byte) {
 	case a >= RAMBase && a < RAMBase+RAMSize:
 		c.RAM[a-RAMBase] = v
 	case a >= 0x4000 && a < 0x8000:
+	case a == 0xF000: // the map fill's last byte ($6D9A)
+		c.F000 = v
 	default:
 		panic(fmt.Sprintf("engine: write of $%02X to unmapped $%04X", v, a))
 	}
