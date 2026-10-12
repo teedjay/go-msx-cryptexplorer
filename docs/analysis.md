@@ -10,15 +10,12 @@ correction note, not an edit.
 
 ## Open issues
 
-- **Coverage beyond pyramid 2 on the original is still being searched**
-  (`cmd/keysearch`, phase checkpoints). Verified on the original so far:
-  logo, title, demo (12,000 attract ticks), random play in pyramid 1 with
-  deaths and a game over (6,000 ticks), and a searched game through
-  pyramid 1, its exit door, the map screen and the start of pyramid 2
-  (3,400 ticks). Not yet seen in any trace: pyramids 3-15, the ending
-  (state 10), the second loop ($E058 > 0), the push/sliding-wall paths
-  ($E134 = 6, $694B), traps falling ($680B state 1), screen flips (state
-  9) — see the coverage report (`cmd/tracecov`) after each recording.
+- **Pyramids 4, 9, 10, 12, 13 and 14 are not yet cleared in any trace**
+  (the search gave up at 3-5 of their jewels; they were entered and
+  played, unverified only past that point). Cleared and verified on the
+  original: 1, 2, 3, 5, 6, 7, 8, 11, 15, the ending and the start of the
+  second loop. Not yet seen: play in the second loop beyond its first
+  intro, enemy state 8 (vanish).
 - **Audio** is not yet compared with the original's (`cmd/audiocmp`,
   `scripts/refaudio.tcl` not yet ported from the previous project). The
   PSG register stream is proven by the comparator; the chip model and the
@@ -181,6 +178,9 @@ when their tables are fully mapped (Medium extent, High content).
 | 2026-10-12 | ks1 (keysearch: pyramid 1 cleared) | 3,400 | all match: exit door, map screen, pyramid 2 built |
 | 2026-10-12 | comparator flip test | | a flipped RAM byte (tick 1500) and VRAM byte (tick 1700) reported at the right tick and address |
 | 2026-10-12 | machinecheck (paced Machine) | attract 12,000, play1 6,000 | RAM, VRAM and frame timing all match |
+| 2026-10-12 | p3, p7, p8, p6, p2 (keysearch, cheat start by pokes) | 3,551 / 4,432 / 5,112 / 8,264 / 6,134 | all match: each pyramid cleared, exit, map screen, next pyramid |
+| 2026-10-12 | p5, p11 | 6,574 / 4,131 | all match |
+| 2026-10-12 | p15 | 4,742 | all match: pyramid 15 cleared, map screen, **the ending** (state 10), extra life and bonus, second loop starts at pyramid 1 |
 
 ## Cheat starts against real arrivals
 
