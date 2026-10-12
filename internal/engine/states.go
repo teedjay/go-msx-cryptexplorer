@@ -295,4 +295,3 @@ func (c *Console) stateNextLife() {
 	c.wr(0xE00D, 0)
 	c.setState(4)
 }
-
