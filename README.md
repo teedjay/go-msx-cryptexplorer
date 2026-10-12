@@ -6,7 +6,13 @@ hardware-abstraction layer. **This is not an emulator: no Z80 code runs at
 runtime.** An emulator is used only offline, as a reference to check the
 port against the original tick by tick.
 
-Status: work in progress.
+Status: the whole game is ported and playable. Recordings of the original
+(attract mode, random play, and searched games clearing pyramids, through
+the exit doors and the map screen into the next pyramid) match it byte for
+byte, tick by tick; see `docs/analysis.md` for exactly what has been
+verified.
+
+![The first pyramid, rendered by this port](screenshots/5-play.png)
 
 ## Requirements
 
@@ -22,6 +28,25 @@ Status: work in progress.
   Other dumps are not supported; the tools warn on a mismatch.
 - For development only: openMSX with the bundled C-BIOS machines, used as an
   offline reference.
+
+## Playing
+
+```
+go run ./cmd/extract     # once: rebuild the assets from your ROM
+go run ./cmd/play
+```
+
+Arrows move (up and down climb stairs), SPACE jumps, or throws the dagger
+or digs with the pick when you hold one. F1 pauses, F2 gives up the
+current life, Esc quits. `-scale N` sets the window size, `-mute` turns
+off the sound, and `-record file.keys` saves your session so it can be
+replayed into the original and compared.
+
+Cheat: outside a game (logo, title or demo), keys 1-9, 0, Q, W, E, R and T
+start a game at pyramid 1-15. The cheat is an extension over the port: it
+goes through the game's own start and only sets the pyramid (and its
+entry door) before the first one is built. A recorded session notes it as
+two RAM writes, which the reference recorder replays too.
 
 ## Legal
 
